@@ -17,7 +17,7 @@ export default defineConfig({
 			sidebar: [
 				{
 					label: "Hello Stranger",
-					link: "notes/hello"	
+					link: "/notes/hello"	
 				},
 				{
 					label: 'Redis',
@@ -33,11 +33,12 @@ export default defineConfig({
 			],
 			plugins: [
 				starlightBlog({
-					title: "blog"
+					title: "blog",
+					
 				}),
 			]
 		}),
 	],
 	site: 'https://hcc429.github.io',
-	base: 'clog'
+	base: '/clog'
 });
