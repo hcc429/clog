@@ -1,36 +1,35 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
+title: Welcome to clog!
+description: Clog Homepage
 template: splash
 hero:
-  tagline: Congrats on setting up a new Starlight project!
+  tagline: 這邊是不是放點字好看一點
   image:
     file: ../../assets/houston.webp
   actions:
-    - text: Example Guide
-      link: /guides/example/
-      icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
-      icon: external
-      variant: minimal
+    - text: Notes
+      link: /notes/hello/
+      icon: puzzle
+    - text: Blog
+      link: /blog/
+      icon: rocket
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
+## About 密
 
 <CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
+	<Card title="Cat Person!" icon="heart">
+		好想養貓但房東說不行，只好準備把房東換了
 	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
+	<Card title="Junior Yaml Engineer" icon="seti:yml">
+		日常都在寫 yaml 的菜鳥工程師..
 	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
+	<Card title="Built with starlight" icon="starlight">
+		這個 blog [模板](https://starlight.astro.build/) 好好看，不用寫 css 真是太好了
 	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+	<Card title="ING" icon="open-book">
+		這格還沒想到要寫什麼
 	</Card>
 </CardGrid>
