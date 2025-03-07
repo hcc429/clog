@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightBlog from 'starlight-blog';
+import rehypeExternalLinks from 'rehype-external-links';
 
 // https://astro.build/config
 export default defineConfig({
@@ -40,5 +41,15 @@ export default defineConfig({
 		}),
 	],
 	site: 'https://hcc429.github.io',
-	base: '/clog'
+	base: '/clog',
+	markdown: {
+		rehypePlugins: [
+			[
+				rehypeExternalLinks,
+				{
+					target: "_blank"
+				}
+			]
+		]
+	}
 });
