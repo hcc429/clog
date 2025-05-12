@@ -33,9 +33,9 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 <Tabs>
   <TabItem label="Linux (Debian)">
-  ```sh
+```sh
 sudo apt install -y stow
-  ```
+```
   </TabItem>
   <TabItem label="MacOS">
 ```sh
@@ -108,7 +108,7 @@ stow <Directory> // e.g. stow vim
 
 他就會為該資料夾底下的所有檔案以及資料夾創建對應的軟連結  
 
-但若是只想要為檔案的話需要加上 **no-folding**
+但若是只想要為檔案的話需要加上 **--no-folding**
 
 除非你確定連結過去的資料夾只有你會使用，不然建議使用這個 flag
 
@@ -124,7 +124,7 @@ stow -D <Directory>
 
 其實他預設目標並不是家目錄，而是專案的上層目錄
 
-但我們創建的地方就在家目錄下面，所以他預設就會是家目錄
+但我們創建的地方就在家目錄下面，所以他預設就會相對於家目錄
 
 想要放到其他地方可以透過 **-t** 來指定，像是我想要放到 `/etc` 底下
 
@@ -136,7 +136,7 @@ stow -t /etc <Directory>
 
 在管理這些檔案時前綴可能很多 . 的， ls 預設不會顯示  
 
-也可以將前綴改為 dot-files，在加上 **--dotfiles** 
+也可以將前綴改為 dot-，在加上 **--dotfiles** 
 
 stow 就會在創建連結時自動把 dot- 轉換成 .
 

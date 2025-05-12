@@ -1,0 +1,302 @@
+---
+title: Understanding Sentinel
+description: 深入理解 Sentinel 運作機制
+lastUpdated: 2025-04-19
+draft: true
+---
+
+import {Tabs, TabItem, Steps} from '@astrojs/starlight/components';
+
+## 前言
+先聊一下為什麼會研究 sentinel 
+
+某天在等下班時
+
+同事突然告訴我我部署的 oauth2-proxy 出現問題
+
+導致無法查看 Prometheus
+
+排查了一下發現是 oauth2-proxy 背後的 redis 所在節點當機
+
+也因為一開始沒有考慮這個問題
+
+所以只有部署一個 single redis
+
+之後就開始研究 redis 的高可用方案
+
+目前有兩套
+
+1. Redis Cluster
+2. Redis Sentinel
+
+兩個的場景不太一樣
+
+研究完後覺得 sentinel 更適合我們的場景
+
+所以就先介紹 sentinel
+
+這篇的重點如下
+* Sentinel 是什麼
+* 透過 Docker 部署實驗環境
+* Sentinel 如何運作
+* Client Side 如何支援
+
+## Sentinel 是什麼
+
+Sentinel (哨兵) 是從 redis 2.6 加入的功能
+
+提供非 redis-cluster 的監控以及自動的故障轉移
+
+Sentinel 模式下，一組 redis 會有一個 Master 配合 1 個以上的 replicas
+
+以下圖為例就是 1 個 Master 搭配 2 個 Replica
+
+而 Sentinel 本身也是一個分散式的集群，透過 Quorum 來投票
+
+因此官方建議 Sentinel 至少要有 3 台部署在 3 個不同的節點
+
+一組 Sentinel 可以拿來監測多組 master-replication 架構的 redis
+
+Sentinel 內部用 master name 來區分監控的 redis 是哪組
+
+
+## Quick Start
+
+<Tabs>
+
+<TabItem label="Docker  Compose">
+<Steps>
+1. 前置作業
+
+    安裝 docker compose 
+
+    將以下 docker-compose.yaml 貼到某個檔案下
+    ```yaml title="docker-compose.yaml"
+    services:
+    redis-0:
+        image: redis:7.0
+        command: ["redis-server", "--appendonly", "yes"]
+        ports:
+        - "6379:6379"
+
+    redis-1:
+        image: redis:7.0
+        depends_on:
+        - redis-0
+        command: ["redis-server", "--appendonly", "yes", "--replicaof", "redis-0", "6379"]
+        ports:
+        - "6380:6379"
+
+    sentinel-0: &sentinel
+        image: redis:7.0
+        depends_on:
+        - redis-0
+        - redis-1
+        command: >
+        sh -c "\
+            mkdir -p /etc/redis/
+            echo 'sentinel monitor mymaster redis-0 6379 2' > /etc/redis/sentinel.conf && \
+            echo 'sentinel resolve-hostnames yes' >> /etc/redis/sentinel.conf && \
+            echo 'sentinel down-after-milliseconds mymaster 5000' >> /etc/redis/sentinel.conf && \
+            redis-sentinel /etc/redis/sentinel.conf
+        "
+
+    sentinel-1: *sentinel
+
+    sentinel-2: *sentinel
+    ```
+
+
+2. 透過 `docker compose` 啟動
+    ```sh
+    docker-compose -d -f <file> up
+    ```
+
+
+3. 透過 redis-cli 連線到 sentinel 
+
+   在 container 啟動後我們可以透過 redis-cli 與 sentinel 溝通
+
+   `26379` 是 sentinel 的 port
+
+    底下可以任選一台 sentinel 連線進去，結果會是一樣的
+
+    ```sh 
+    docker exec -it <your sentinel container name> redis-cli -p 26379
+    ```
+
+4. 查看 sentinel 狀態
+
+    透過 `sentinel masters` 可以查看目前所有監控的 master 狀態
+
+    因為我們也只有監控一組 mymaster (見上方 docker compose 的設定檔)
+
+    所以只會有 mymaster
+    
+    底下也看到 mymaster 這組 redis 目前 master 的 ip 以及 port
+    ```sh
+    127.0.0.1:26379>sentinel masters
+    1) "name"
+    2) "mymaster"
+    3) "ip"
+    4) "192.168.107.2"
+    5) "port"
+    6) "6379"
+    ```
+
+    實務上一組 sentinel 通常也只會監控一組 redis 
+
+    所以 `sentinel masters` 這個指令比較少用到
+
+    以下這幾個較常使用到
+
+    ```sh
+    # 查看目前所有監控 mymaster 的 sentinels
+    sentinel sentinels mymaster
+    # 查看目前 mymaster 所有的 replicas 資訊
+    sentinel slaves mymaster
+    # 查看目前 mymaster 的 master 資訊 
+    sentinel master mymaster
+    # 查看目前 mymaster 的 master 的 ip 以及 port
+    sentinel get-master-addr-by-name mymaster
+    ```
+
+    這邊一些眼尖的讀者可能會有疑問
+
+    仔細看上面 docker-compose 的設定檔 
+
+    會發現我們只有告訴 sentinel 哪個 redis 是 mymaster 的 master
+
+    那麼 sentinel 是怎麼知道誰是 mymaster 的 replica 呢？
+
+    除此之外 sentinel 的設定裡面其實也沒有關於其他 sentinel 的資訊
+
+    他們又是怎麼知道彼此的呢？
+
+</Steps>
+</TabItem>
+
+<TabItem label="Kubernetes">
+<Steps>
+1. 前置作業
+    * 已經安裝好 helm
+
+    * 有 kubernetes cluster 可以操作
+
+2. 將 bitnami 的 repo 加入 helm 並下載 chart 到 /tmp
+    ```sh
+    helm repo add bitnami https://charts.bitnami.com/bitnami
+
+    helm fetch bitnami/redis --untar --untardir /tmp
+
+    ```
+3. enable sentinel  
+
+    到剛剛下載的路徑打開 Values.yaml
+
+    將 `sentinel enabled` 改成 true
+
+    以及 `auth enabled` 關掉方便觀察
+
+    ```yaml title="Values.yaml" del={2,6-7} ins={3,8-9}
+    sentinel:
+        enabled: false
+        enabled: true
+    
+    auth:
+        enabled: true
+        sentinel: true
+        enabled: false
+        sentinel: false
+    ```
+4. 安裝 chart 
+
+    ```sh
+    helm install redis-sentinel /tmp/redis
+    ```
+
+    過個 1 分鐘查看狀態
+    ```sh
+    kubectl get pods
+
+    NAME                    READY   STATUS    RESTARTS   AGE
+    redis-sentinel-node-0   2/2     Running   0          120s
+    redis-sentinel-node-1   2/2     Running   0          58s
+    redis-sentinel-node-2   2/2     Running   0          33s
+    ```
+
+5. 查看 sentinel 狀態
+
+    透過 `kubectl exec` 進入 sentinel 的 pod
+
+    ```sh
+    kubectl exec -it redis-sentinel-node-0 -- redis-cli -p 26379
+    ```
+
+    這邊的 port 是 sentinel 的 port
+
+    進去後可以透過 `sentinel masters` 查看目前所有監控的 master 狀態
+
+    bitnami 的 helm chart 預設只會監控一組 mymaster
+
+    所以只會有 mymaster
+    
+    底下也看到 mymaster 這組 redis 目前 master 的 ip 以及 port
+    ```sh
+    127.0.0.1:26379> sentinel masters
+    1)  1) "name"
+        2) "mymaster"
+        3) "ip"
+        4) "redis-sentinel-node-0.redis-sentinel-headless.default.svc.cluster.local"
+        5) "port"
+        6) "6379"
+        ...
+    ```
+
+    實務上一組 sentinel 通常也只會監控一組 redis
+
+    所以 `sentinel masters` 這個指令比較少用到
+
+    以下這幾個較常使用到
+
+    ```sh
+    # 查看目前所有監控 mymaster 的 sentinels
+    sentinel sentinels mymaster
+    # 查看目前 mymaster 所有的 replicas 資訊
+    sentinel slaves mymaster
+    # 查看目前 mymaster 的 master 資訊
+    sentinel master mymaster
+    # 查看目前 mymaster 的 master 的 ip 以及 port
+    sentinel get-master-addr-by-name mymaster
+    ```
+
+6. 觀察 sentinel log
+
+    bitnami 的 helm chart 是使用 statefulset 來部署 redis 以及 sentinel
+
+    我們知道 statefulset 會從 0 號 pod 開始長
+
+    所以理論上 0 號的 pod 會是初始的 Master 
+
+    我們可以看看 0 號 pod 的 log 來觀察 sentinel 是如何運作的
+    ```sh
+    kubectl logs redis-sentinel-node-0 -c sentinel | head -n 30
+    ```
+
+    你如果仔細看會看到以下這行, sentinel 察覺到這組 redis 新增了一個 replica 
+
+    原因是這個時候 statefulset 的第二個 pod redis-sentinel-node-1 剛啟動
+    
+    ```sh
+    +slave slave redis-sentinel-node-1... 6379 @ mymaster redis-sentinel-node-0... 6379
+    ```
+
+    那 sentinel 是如何得知這個訊息的呢？
+
+
+</Steps>
+</TabItem>
+</Tabs>
+
+
+## Sentinel Internal
