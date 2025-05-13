@@ -6,15 +6,17 @@ import rehypeExternalLinks from "rehype-external-links";
 import starlightSidebarTopics from "starlight-sidebar-topics";
 import mdx from "@astrojs/mdx";
 import { options, sidebar } from "./sidebar";
-import catppuccin from "@catppuccin/starlight";
 
 import expressiveCode from "astro-expressive-code";
+
+import tailwindcss from "@tailwindcss/vite";
 
 // https://astro.build/config
 export default defineConfig({
   server: {
     allowedHosts: ["localhost", "m4mini.ishcc.net"], // Bug: it should set to true to allow any host
   },
+
   integrations: [
     starlight({
       title: "clog",
@@ -33,14 +35,17 @@ export default defineConfig({
       plugins: [
         starlightSidebarTopics(sidebar, options),
         starlightBlog(),
-        catppuccin({dark: {"flavor": "macchiato"}}),
       ],
+      customCss: ["./src/styles/global.css"],
+      pagination: false
     }),
     expressiveCode(),
     mdx(),
   ],
+
   site: "https://hcc429.github.io",
   base: "/clog",
+
   markdown: {
     remarkPlugins: [],
     rehypePlugins: [
@@ -51,5 +56,9 @@ export default defineConfig({
         },
       ],
     ],
+  },
+
+  vite: {
+    plugins: [tailwindcss()],
   },
 });
