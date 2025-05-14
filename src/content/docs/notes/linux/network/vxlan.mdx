@@ -352,19 +352,21 @@ UDP 包含 VXLAN 的 header ，
 5. 大功告成！可以在一個 container 內 ping 另外一個 host 上的 container！
 
 :::note
-必須創建 docker network 的原因是若要指定 container IP，必須在 user created network 的網段內，
+創建 docker network 的原因是若要指定 container IP，
 
-且自行創建網段可控制想要的 IP 範圍。
+必須在 user created network 的網段內，
+
+且創建 network 網段可控制想要的 IP 範圍。
 :::
 
 :::tip
-在容器內做網路實驗時，可以使用 nicolaka/netshoot 這個 image 
+在容器內做網路實驗時，可以使用 nicolaka/netshoot 這個 image，
 
 裡面包含了常見的網路工具。
 :::
 
 :::caution
-因 container 不知道自己的封包會經過 vxlan device，
+因 container 不知道自己的封包會經過 VXLAN device，
 
 其 veth 的 MTU 仍然是 1500 bytes，
 
