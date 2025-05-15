@@ -14,7 +14,7 @@ import tailwindcss from "@tailwindcss/vite";
 // https://astro.build/config
 export default defineConfig({
   server: {
-    allowedHosts: ["localhost", "m4mini.ishcc.net"], // Bug: it should set to true to allow any host
+    allowedHosts: ["localhost", "m4mini.ishcc.net", "blog.ishcc.net"], // Bug: it should set to true to allow any host
   },
 
   integrations: [
@@ -32,19 +32,15 @@ export default defineConfig({
         Sidebar: "./src/components/Sidebar.astro",
       },
 
-      plugins: [
-        starlightSidebarTopics(sidebar, options),
-        starlightBlog(),
-      ],
+      plugins: [starlightSidebarTopics(sidebar, options), starlightBlog()],
       customCss: ["./src/styles/global.css"],
-      pagination: false
+      pagination: false,
     }),
     expressiveCode(),
     mdx(),
   ],
 
   site: "https://hcc429.github.io",
-  base: "/clog",
 
   markdown: {
     remarkPlugins: [],
