@@ -24,7 +24,7 @@ export default defineConfig({
         {
           label: "Github",
           icon: "github",
-          href: "https://github.com/hcc429/clog",
+          href: "https://github.com/hcc429/",
         },
       ],
       components: {
