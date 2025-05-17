@@ -16,7 +16,7 @@ export let sidebar: StarlightSidebarTopicsUserConfig = [
     label: "Redis",
     link: "/notes/redis/",
     id: "redis",
-    items: [],
+    items: ["notes/redis/sentinel"],
   },
 ];
 

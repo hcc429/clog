@@ -1,37 +1,27 @@
 ---
 title: Understanding Sentinel
 description: 深入理解 Sentinel 運作機制
-lastUpdated: 2025-04-19
-draft: true
+lastUpdated: 2025-05-18
 ---
 
 import {Tabs, TabItem, Steps} from '@astrojs/starlight/components';
 
 ## 前言
-先聊一下為什麼會研究 sentinel 
+先聊一下為什麼會研究 sentinel，
 
-某天在等下班時
+某天在等下班時，
 
-同事突然告訴我我部署的服務出現問題
+同事突然告訴我我部署的服務出現問題，
 
-排查了一下發現是服務背後的 redis 所在節點當機
+排查了一下發現是服務背後的 redis 所在節點當機，
 
-也因為一開始沒有考慮這個問題
+因為一開始沒有考慮這個問題，
 
-所以只有部署一個 single redis
+所以只有部署一個 single redis。
 
-之後就開始研究 redis 的高可用方案
+這件事之後就開始研究 redis 的高可用方案，
 
-目前有兩套
-
-1. Redis Cluster
-2. Redis Sentinel
-
-兩個的場景不太一樣
-
-研究完後覺得 sentinel 更適合我們的場景
-
-所以就先介紹 sentinel
+這篇先介紹 sentinel，cluster 等有空再寫。
 
 這篇的重點如下
 * Sentinel 是什麼
@@ -56,6 +46,10 @@ Sentinel 模式下，一組 redis 會有一個 Master 配合 1 個以上的 repl
 一組 Sentinel 可以拿來監測多組 master-replication 架構的 redis
 
 Sentinel 內部用 master name 來區分監控的 redis 是哪組
+
+像下圖各個 sentinel 以 `mymaster` 來辨別這組 redis 
+
+![](../../../../assets/images/notes/redis/sentinel/sentinel_architecture.png)
 
 
 ## Quick Start
@@ -298,3 +292,203 @@ Sentinel 內部用 master name 來區分監控的 redis 是哪組
 
 
 ## Sentinel Internal
+
+其實 sentinel 的運作原理非常簡單，
+
+最開始啟動的時候需要指定監控的 Master IP，
+
+接著 sentinel 就會在那個 redis master 的 pubsub 上訂閱 `__sentinel__:hello` 的 channel，
+
+並且定時向這個 channel 發送 heartbeat 的訊息。
+
+其他台 sentinel 啟動時也會做一樣的操作，
+
+最終在同一個 pubsub 來動態發現彼此的存在。
+
+至於 replica 的部分，sentinel 會直接在 master 上面執行 `INFO REPLICA` 指令來獲取目前的 replica 列表。
+
+所以對於 redis 來說，sentinel 其實只是一個普通的 client，
+
+我們可以在 master 或其 replica 上面透過 `pubsub channels` 查看所有 pubsub，
+
+並透過 `subscribe __sentinel__:hello` 來訂閱這個 channel。
+```sh
+127.0.0.1:6379> pubsub channels
+1) "__sentinel__:hello"
+127.0.0.1:6379> subscribe __sentinel__:hello
+1) "subscribe"
+2) "__sentinel__:hello"
+3) (integer) 1
+1) "message"
+2) "__sentinel__:hello"
+3) "192.168.194.50,26379,5f4ff5b1f3024ce375ab027ac24adb717305f02c,0,mymaster,redis-sentinel-node-0.redis-sentinel-headless.default.svc.cluster.local,6379,0"
+1) "message"
+2) "__sentinel__:hello"
+3) "192.168.194.50,26379,5f4ff5b1f3024ce375ab027ac24adb717305f02c,0,mymaster,redis-sentinel-node-0.redis-sentinel-headless.default.svc.cluster.local,6379,0"
+1) "message"
+2) "__sentinel__:hello"
+3) "192.168.194.51,26379,6b28db582bd8af66c1e0ddbcc9afcce2daba4354,0,mymaster,redis-sentinel-node-0.redis-sentinel-headless.default.svc.cluster.local,6379,0"
+...
+```
+
+可以看到上面 sentinel 會在 pubsub 中留下自己的資訊，格式如下：
+
+`sentinel ip, sentinel port, sentinel id, sentinel epoch, master name, master ip, master port, master epoch`。
+
+有了這些資訊其他 sentinel 就可以連線到彼此，形成一個分散式集群。
+
+:::note
+當你今天透過 `info clients` 指令查看 redis 的 client 時，
+
+會發現連線數會比你預期的多，以上面的配置來說，可能會看到 8~9 個連線。
+
+有這麼多是因為 replica 與 master 彼此之間有連線，
+
+sentinel 也會與 master 以及 replica 之間有連線，
+
+而且一台 sentinel 會與一個 redis 有 2 個連線，
+
+一個是用來訂閱的連線，另一個是用來向 redis 發送命令的連線。
+:::
+## 故障轉移
+
+上面講 sentinel 的運作原理，這小節講述 sentinel 是怎麼處理故障轉移的。
+
+當其中一台 sentinel 偵測到 master 當機時，會將該 master 標示為主觀下線，
+
+並開始進行故障轉移的程序。
+
+:::note
+sentinel 每秒會向 master 以及 replica 發送 ping 指令來確認是否存活，
+
+若超過了參數 `down-after-milliseconds` 設定的時間沒有回應，
+
+則會將該 redis 標示為主觀下線 (subjectively down, SDOWN)。
+
+`down-after-milliseconds` 的預設值是 60s。
+:::
+
+故障轉移的過程會由某台 sentinel 發起投票，
+
+詢問其他 sentinel 是否也觀測到這台 redis 當機。
+
+若其他 sentinel 也認同當機，則會把票投給詢問的 sentinel，
+
+一但達到 quorum 的票數，則判定為客觀下線，
+
+這時候會從所有的 replica 中選出一台來升級為 master，
+
+並將其他的 replica 指向新的 master。
+
+![](../../../../assets/images/notes/redis/sentinel/sentinel_failover.png)
+:::note
+sentinel 將 replica 的升級為 master 的方式非常簡單，
+
+就是直接對他下達 `SLAVEOF NO ONE` 的指令。
+:::
+
+## Client Side Support
+
+聊完了 sentinel 的運作原理以及如何故障轉移，
+
+最後想來講 client side 該怎麼支援，
+
+若你只有連線過單機的 redis，
+
+可能覺得怪怪的，故障轉移很好，但 client library 怎麼知道要連線到新的 master 呢？
+
+以下我們以 go-redis 為例，來看看他是怎麼做的。
+
+在 go-redis 中，是透過 `NewFailoverClient` 來與 redis 連線，
+
+並且給他所有 sentinel 的 addresses。
+
+`masterReplicaDialer` 就是用來連線到 redis 的 dialer。
+
+```go
+func NewFailoverClient(failoverOpt *FailoverOptions) *Client {
+	
+	...
+	failover := &sentinelFailover{
+		opt:           failoverOpt,
+		sentinelAddrs: sentinelAddrs,
+	}
+
+	opt := failoverOpt.clientOptions()
+	opt.Dialer = masterReplicaDialer(failover)
+	opt.init()
+
+}
+
+func masterReplicaDialer(
+	failover *sentinelFailover,
+) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, _ string) (net.Conn, error) {
+		var addr string
+		var err error
+		...
+
+			addr, err = failover.MasterAddr(ctx)
+
+		...
+	}
+}
+```
+可以看到這個 `masterReplicaDialer` 最後呼叫了 `failover.MasterAddr` 來獲取最開始的 master 的地址，
+
+這個方法會遍歷所有的 sentinel，並且向他們詢問目前的 master 是誰。
+
+一但問到 master 的地址就會回傳，但在回傳前會在呼叫 `setSentinel` 。
+```go
+// from go-redis sentinel.go
+func (c *sentinelFailover) MasterAddr(ctx context.Context) (string, error) {
+	...
+	for i, sentinelAddr := range c.sentinelAddrs {
+		sentinel := NewSentinelClient(c.opt.sentinelOptions(sentinelAddr))
+
+		masterAddr, err := sentinel.GetMasterAddrByName(ctx, c.opt.MasterName).Result()
+		if err != nil {
+            ...
+		}
+
+		// Push working sentinel to the top.
+		c.sentinelAddrs[0], c.sentinelAddrs[i] = c.sentinelAddrs[i], c.sentinelAddrs[0]
+		c.setSentinel(ctx, sentinel)
+
+		addr := net.JoinHostPort(masterAddr[0], masterAddr[1])
+		return addr, nil
+	}
+}
+
+```
+
+那這個 `setSentinel` 是做什麼的呢？
+
+他其實就是一個 go-routine 來監聽 sentinel 的 pubsub，
+
+當 sentinel 在執行故障轉移時，會在自身的 pubsub 上面發送 `+switch-master` 的訊息，
+
+這時候 go-redis 的 client 就會收到這個訊息，並且呼叫 `trySwitchMaster` 來更新目前的 master 地址。
+```go
+// from go-redis sentinel.go
+func (c *sentinelFailover) setSentinel(ctx context.Context, sentinel *SentinelClient) {
+	
+	...
+	c.pubsub = sentinel.Subscribe(ctx, "+switch-master", "+replica-reconf-done")
+	go c.listen(c.pubsub)
+}
+
+
+func (c *sentinelFailover) listen(pubsub *PubSub) {
+	ctx := context.TODO()
+
+
+	ch := pubsub.Channel()
+	for msg := range ch {
+		if msg.Channel == "+switch-master" {
+            ...
+			c.trySwitchMaster(pubsub.getContext(), addr)
+		}
+	}
+}
+```
