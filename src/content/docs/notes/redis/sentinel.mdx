@@ -31,23 +31,23 @@ import {Tabs, TabItem, Steps} from '@astrojs/starlight/components';
 
 ## Sentinel 是什麼
 
-Sentinel (哨兵) 是從 redis 2.6 加入的功能
+Sentinel (哨兵) 是從 redis 2.6 加入的功能，
 
-提供非 redis-cluster 的監控以及自動的故障轉移
+提供非 redis-cluster 的監控以及自動的故障轉移。
 
-Sentinel 模式下，一組 redis 會有一個 Master 配合 1 個以上的 replicas
+Sentinel 模式下，一組 redis 會有一個 Master 配合 1 個以上的 replicas，
 
-以下圖為例就是 1 個 Master 搭配 2 個 Replica
+以下圖為例就是 1 個 Master 搭配 2 個 Replica，
 
-而 Sentinel 本身也是一個分散式的集群，透過 Quorum 來投票
+而 Sentinel 本身也是一個分散式的集群，透過 Quorum 來投票，
 
-因此官方建議 Sentinel 至少要有 3 台部署在 3 個不同的節點
+因此官方建議 Sentinel 至少要有 3 台部署在 3 個不同的節點。
 
-一組 Sentinel 可以拿來監測多組 master-replication 架構的 redis
+一組 Sentinel 可以拿來監測多組 master-replication 架構的 redis，
 
-Sentinel 內部用 master name 來區分監控的 redis 是哪組
+Sentinel 內部用 master name 來區分監控的 redis 是哪組，
 
-像下圖各個 sentinel 以 `mymaster` 來辨別這組 redis 
+像下圖各個 sentinel 以 `mymaster` 來辨別這組 redis。
 
 ![](../../../../assets/images/notes/redis/sentinel/sentinel_architecture.png)
 
@@ -391,7 +391,7 @@ sentinel 將 replica 的升級為 master 的方式非常簡單，
 
 聊完了 sentinel 的運作原理以及如何故障轉移，
 
-最後想來講 client side 該怎麼支援，
+最後想來講 client side 該怎麼支援。
 
 若你只有連線過單機的 redis，
 
@@ -492,3 +492,21 @@ func (c *sentinelFailover) listen(pubsub *PubSub) {
 	}
 }
 ```
+
+
+## Clean Up 
+最後別忘了清除實驗環境😱。
+
+<Tabs>
+<TabItem label="Docker  Compose">
+```sh
+docker compose -f <file> down
+```
+</TabItem>
+
+<TabItem label="Kubernetes">
+```sh
+helm uninstall redis-sentinel
+```
+</TabItem>
+</Tabs>
