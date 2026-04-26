@@ -1,0 +1,52 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+import { Image } from "astro:assets";
+import { getSeriesHref, getSeriesSlug } from "../../lib/routes";
+
+const allSeries = await getCollection("series", ({ data }) => !data.draft);
+const allPosts = await getCollection("seriesPosts", ({ data }) => !data.draft);
+
+const seriesWithCount = allSeries
+  .map((s) => {
+    const slug = getSeriesSlug(s.id);
+    return {
+      ...s,
+      slug,
+      postCount: allPosts.filter((p) => p.id.startsWith(slug + "/")).length,
+    };
+  })
+  .filter((s) => s.postCount > 0)
+  .sort((a, b) => a.data.title.localeCompare(b.data.title, "zh-TW"));
+---
+
+<BaseLayout title="系列文章">
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <h1 class="text-3xl font-bold text-ink mb-2">系列文章</h1>
+    <p class="text-subtle mb-10">將相關文章整理成系列，方便依序閱讀。</p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {seriesWithCount.map((s) => (
+        <a
+          href={getSeriesHref(s.id)}
+          class="group flex flex-col border-[3px] border-ink bg-white hover:-translate-y-1 transition-transform duration-150"
+        >
+          <div class="aspect-video overflow-hidden">
+            <Image
+              src={s.data.cover}
+              alt={s.data.title}
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+          <div class="flex flex-col flex-1 px-4 pt-4 pb-3 gap-2">
+            <h2 class="text-base font-bold text-ink group-hover:text-brand transition-colors leading-snug">
+              {s.data.title}
+            </h2>
+            <p class="text-sm text-subtle line-clamp-2 flex-1">{s.data.description}</p>
+          </div>
+          <div class="bg-ink px-4 py-2.5 text-xs text-faint">{s.postCount} 篇文章</div>
+        </a>
+      ))}
+    </div>
+  </section>
+</BaseLayout>

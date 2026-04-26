@@ -1,24 +1,37 @@
-@layer base, starlight, theme, components, utilities;
-
-@import '@astrojs/starlight-tailwind';
-@import 'tailwindcss/theme.css' layer(theme);
-@import 'tailwindcss/utilities.css' layer(utilities);
-
+@import "tailwindcss";
+@import "rehype-callouts/theme/github";
+@plugin "@tailwindcss/typography";
 
 @theme {
+  --font-sans: "Inter", "Noto Sans TC", system-ui, sans-serif;
 
-/* color palette from nord theme */
-    --color-accent-200: #92d1fe;
-    --color-accent-600: #88c0d0;
-    --color-accent-900: #81a1c1;
-    --color-accent-950: #5e81ac;
+  /* Page */
+  --color-page: #f0f0f0;
 
-    --color-gray-100: #f3f7f9;
-    --color-gray-200: #e7eff2;
-    --color-gray-300: #e5e9f0;
-    --color-gray-400: #d8dee9;
-    --color-gray-500: #4c566a;
-    --color-gray-700: #434c5e;
-    --color-gray-800: #3b4252;
-    --color-gray-900: #2e3440;
+  /* Brand / accent scale */
+  --color-brand: #3b82f6;          /* primary */
+  --color-brand-strong: #2563eb;   /* hover, strong-on-tint */
+  --color-brand-soft: #60a5fa;     /* secondary accent */
+  --color-brand-tint: #eff6ff;     /* tint bg */
+  --color-brand-tint-strong: #dbeafe; /* tint bg hover */
+
+  /* Neutral / text */
+  --color-ink: #111827;         /* strongest: headings, hard borders, dark surfaces */
+  --color-muted: #4b5563;       /* secondary text / nav */
+  --color-subtle: #6b7280;      /* tertiary text */
+  --color-faint: #9ca3af;       /* timestamps, quiet text */
+  --color-line: #e5e7eb;        /* dividers, subtle borders */
+  --color-line-strong: #d1d5db; /* default button borders */
 }
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--color-page);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+

@@ -1,0 +1,33 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import ArticleContent from "../components/ArticleContent.astro";
+import CoverImage from "../components/CoverImage.astro";
+import Giscus from "../components/Giscus.astro";
+import PostHeader from "../components/PostHeader.astro";
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  post: CollectionEntry<"blog">;
+}
+
+const { post } = Astro.props;
+const { title, date, tags, cover, excerpt } = post.data;
+---
+
+<BaseLayout title={title} description={excerpt}>
+  <article class="max-w-3xl mx-auto px-6 py-12">
+    <PostHeader title={title} date={date} tags={tags} linkTags />
+
+    <CoverImage src={cover} alt={title} />
+
+    <ArticleContent>
+      <slot />
+    </ArticleContent>
+
+    <div class="mt-12 pt-6">
+      <a href="/blog" class="text-sm text-brand hover:underline">← 回到文章列表</a>
+    </div>
+
+    <Giscus />
+  </article>
+</BaseLayout>

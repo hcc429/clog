@@ -1,0 +1,101 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import ArticleContent from "../components/ArticleContent.astro";
+import CoverImage from "../components/CoverImage.astro";
+import Giscus from "../components/Giscus.astro";
+import PostHeader from "../components/PostHeader.astro";
+import { getCollection } from "astro:content";
+import type { CollectionEntry } from "astro:content";
+import { getSeriesHref, getSeriesPostHref, getSeriesSlug } from "../lib/routes";
+
+interface Props {
+  post: CollectionEntry<"seriesPosts">;
+}
+
+const { post } = Astro.props;
+const { title, date, tags, cover, excerpt } = post.data;
+const seriesSlug = getSeriesSlug(post.id);
+
+const [allSeries, allSeriesPosts] = await Promise.all([
+  getCollection("series"),
+  getCollection("seriesPosts", (e) => !e.data.draft && e.id.startsWith(seriesSlug + "/")),
+]);
+
+const seriesEntry = allSeries.find((s) => getSeriesSlug(s.id) === seriesSlug);
+const seriesPosts = allSeriesPosts.sort((a, b) => a.data.order - b.data.order);
+const idx = seriesPosts.findIndex((p) => p.id === post.id);
+const prevPost = idx > 0 ? seriesPosts[idx - 1] : undefined;
+const nextPost = idx < seriesPosts.length - 1 ? seriesPosts[idx + 1] : undefined;
+---
+
+<BaseLayout title={title} description={excerpt}>
+  <article class="max-w-3xl mx-auto px-6 py-12">
+    <PostHeader title={title} date={date} tags={tags} />
+
+    <CoverImage src={cover} alt={title} />
+
+    {seriesEntry && (
+      <div class="mb-10 border border-line rounded-lg overflow-hidden">
+        <div class="bg-brand-tint px-4 py-3 flex items-center justify-between gap-4">
+          <span class="text-xs font-medium text-brand-strong uppercase tracking-wider shrink-0">系列文章</span>
+          <a href={getSeriesHref(seriesEntry.id)} class="text-sm font-medium text-brand hover:underline truncate">
+            {seriesEntry.data.title}
+          </a>
+        </div>
+        <ol class="divide-y divide-line">
+          {seriesPosts.map((p, i) => {
+            const href = getSeriesPostHref(p.id);
+            return (
+              <li class={`flex gap-3 px-4 py-2.5 text-sm ${p.id === post.id ? "bg-brand-tint/50" : ""}`}>
+                <span class="text-faint shrink-0 tabular-nums w-5">{i + 1}.</span>
+                {p.id === post.id ? (
+                  <span class="font-medium text-brand">{p.data.title}</span>
+                ) : (
+                  <a href={href} class="text-muted hover:text-brand hover:underline">
+                    {p.data.title}
+                  </a>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    )}
+
+    <ArticleContent>
+      <slot />
+    </ArticleContent>
+
+    <div class="mt-12 pt-6 flex items-center gap-6">
+      <a href={seriesEntry ? getSeriesHref(seriesEntry.id) : `/series/${seriesSlug}`} class="text-sm text-brand hover:underline">← 回到系列</a>
+      <a href="/series" class="text-sm text-brand hover:underline">所有系列</a>
+    </div>
+
+    {(prevPost || nextPost) && (
+      <div class="mt-6 grid grid-cols-2 gap-4 border-t border-line pt-6">
+        <div>
+          {prevPost && (
+            <a href={getSeriesPostHref(prevPost.id)} class="group block text-sm">
+              <div class="text-faint text-xs mb-1">← 上一篇</div>
+              <div class="text-ink group-hover:text-brand font-medium line-clamp-2 transition-colors">
+                {prevPost.data.title}
+              </div>
+            </a>
+          )}
+        </div>
+        <div class="text-right">
+          {nextPost && (
+            <a href={getSeriesPostHref(nextPost.id)} class="group block text-sm">
+              <div class="text-faint text-xs mb-1">下一篇 →</div>
+              <div class="text-ink group-hover:text-brand font-medium line-clamp-2 transition-colors">
+                {nextPost.data.title}
+              </div>
+            </a>
+          )}
+        </div>
+      </div>
+    )}
+
+    <Giscus />
+  </article>
+</BaseLayout>

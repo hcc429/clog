@@ -1,0 +1,60 @@
+---
+import "../styles/global.css";
+import { Icon } from "astro-icon/components";
+import { getCollection } from "astro:content";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title = "clog", description = "hcc429 的個人部落格" } = Astro.props;
+
+const allSeriesPosts = await getCollection("seriesPosts", ({ data }) => !data.draft);
+const hasSeries = allSeriesPosts.length > 0;
+---
+
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <header class="border-b border-line bg-white sticky top-0 z-10">
+      <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <a href="/" class="text-xl font-bold text-ink hover:text-brand transition-colors">
+          CLOG
+        </a>
+        <nav class="flex gap-6 text-sm font-medium text-muted">
+          <a href="/blog" class="hover:text-brand transition-colors">文章</a>
+          {hasSeries && (
+            <a href="/series" class="hover:text-brand transition-colors">系列</a>
+          )}
+          <a href="https://github.com/hcc429" target="_blank" aria-label="GitHub" class="text-subtle hover:text-brand transition-colors">
+            <Icon name="simple-icons:github" class="w-5 h-5" />
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="flex-1">
+      <slot />
+    </main>
+
+    <footer class="border-t border-line mt-16">
+      <div class="max-w-5xl mx-auto px-6 py-8 text-center text-sm text-faint">
+        © {new Date().getFullYear()} clog · Built with Astro
+      </div>
+    </footer>
+  </body>
+</html>

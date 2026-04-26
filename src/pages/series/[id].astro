@@ -1,0 +1,56 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+import { formatDate } from "../../lib/date";
+import { getSeriesPostHref, getSeriesSlug } from "../../lib/routes";
+
+export async function getStaticPaths() {
+  const allSeries = await getCollection("series", ({ data }) => !data.draft);
+  const allPosts = await getCollection("seriesPosts", ({ data }) => !data.draft);
+  return allSeries
+    .filter((s) => allPosts.some((p) => p.id.startsWith(getSeriesSlug(s.id) + "/")))
+    .map((s) => ({ params: { id: getSeriesSlug(s.id) }, props: { series: s } }));
+}
+
+const { series } = Astro.props;
+const slug = getSeriesSlug(series.id);
+
+const posts = (
+  await getCollection("seriesPosts", (e) => !e.data.draft && e.id.startsWith(slug + "/"))
+).sort((a, b) => a.data.order - b.data.order);
+---
+
+<BaseLayout title={series.data.title} description={series.data.description}>
+  <section class="max-w-3xl mx-auto px-6 py-12">
+    <p class="text-xs font-medium text-brand uppercase tracking-widest mb-3">系列文章</p>
+    <h1 class="text-3xl font-bold text-ink mb-3 leading-tight">{series.data.title}</h1>
+    <p class="text-subtle leading-relaxed mb-2">{series.data.description}</p>
+    <p class="text-faint text-sm mb-10">{posts.length} 篇文章</p>
+
+    <ol class="divide-y divide-line">
+      {posts.map((p, i) => {
+        return (
+          <li>
+            <a
+              href={getSeriesPostHref(p.id)}
+              class="group flex gap-6 py-6 -mx-4 px-4 hover:bg-brand-tint/40 transition-colors"
+            >
+              <span class="text-3xl font-bold text-line-strong group-hover:text-brand-soft transition-colors tabular-nums w-10 shrink-0 leading-none pt-1">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <div class="flex-1 min-w-0">
+                <h2 class="font-bold text-ink group-hover:text-brand transition-colors mb-1 leading-snug">
+                  {p.data.title}
+                </h2>
+                <p class="text-sm text-subtle line-clamp-2 mb-2">{p.data.excerpt}</p>
+                <time class="text-xs text-faint">
+                  {formatDate(p.data.date)}
+                </time>
+              </div>
+            </a>
+          </li>
+        );
+      })}
+    </ol>
+  </section>
+</BaseLayout>

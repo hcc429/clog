@@ -1,0 +1,76 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import BlogCard from "../../components/BlogCard.astro";
+import { getCollection } from "astro:content";
+
+const allPosts = (await getCollection("blog", ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const allTags = [...new Set(allPosts.flatMap((p) => p.data.tags))].sort();
+---
+
+<BaseLayout >
+  <section class="max-w-5xl mx-auto px-6 py-12">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-ink mb-6">文章</h1>
+
+      <div class="flex flex-wrap gap-2" id="tag-filter">
+        <button
+          data-tag=""
+          class="tag-btn text-sm font-medium px-4 py-1.5 border transition-colors bg-brand text-white border-brand cursor-pointer"
+        >
+          全部
+        </button>
+        {allTags.map((tag) => (
+          <button
+            data-tag={tag}
+            class="tag-btn text-sm font-medium px-4 py-1.5 border border-line-strong text-muted hover:border-brand-soft hover:text-brand transition-colors cursor-pointer"
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="post-grid">
+      {allPosts.map((post) => (
+        <div class="post-card" data-tags={JSON.stringify(post.data.tags)}>
+          <BlogCard post={post} />
+        </div>
+      ))}
+    </div>
+
+    <p id="empty-msg" class="hidden text-faint text-sm mt-4">目前沒有符合的文章。</p>
+  </section>
+</BaseLayout>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>(".tag-btn");
+  const cards = document.querySelectorAll<HTMLElement>(".post-card");
+  const emptyMsg = document.getElementById("empty-msg")!;
+
+  function setActive(tag: string) {
+    buttons.forEach((btn) => {
+      const isActive = btn.dataset.tag === tag;
+      btn.classList.toggle("bg-brand", isActive);
+      btn.classList.toggle("text-white", isActive);
+      btn.classList.toggle("border-brand", isActive);
+      btn.classList.toggle("border-line-strong", !isActive);
+      btn.classList.toggle("text-muted", !isActive);
+    });
+
+    let visible = 0;
+    cards.forEach((card) => {
+      const tags: string[] = JSON.parse(card.dataset.tags ?? "[]");
+      const show = tag === "" || tags.includes(tag);
+      card.style.display = show ? "" : "none";
+      if (show) visible++;
+    });
+
+    emptyMsg.classList.toggle("hidden", visible > 0);
+  }
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => setActive(btn.dataset.tag ?? ""));
+  });
+</script>
